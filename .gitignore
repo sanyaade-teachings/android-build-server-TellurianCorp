@@ -41,6 +41,9 @@ status.json
 # Device configuration
 device.json
 
+# Nginx configuration (deployment-specific)
+nginx.conf
+
 # Logs
 *.log
 server.log
