@@ -288,6 +288,65 @@ document.getElementById("logs-modal").addEventListener("click", (e) => {
     }
 });
 
+function toggleInfoPanel() {
+    const content = document.getElementById("info-panel-content");
+    const icon = document.getElementById("info-toggle-icon");
+    const isCollapsed = content.classList.contains("collapsed");
+    
+    if (isCollapsed) {
+        content.classList.remove("collapsed");
+        content.classList.add("expanded");
+        icon.classList.remove("collapsed");
+    } else {
+        content.classList.remove("expanded");
+        content.classList.add("collapsed");
+        icon.classList.add("collapsed");
+    }
+}
+
+function copyToClipboard(button, elementId) {
+    const codeElement = document.getElementById(elementId);
+    const text = codeElement.textContent.trim();
+    
+    navigator.clipboard.writeText(text).then(() => {
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        button.classList.add("copied");
+        
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.classList.remove("copied");
+        }, 2000);
+    }).catch((error) => {
+        console.error("Failed to copy:", error);
+        // Fallback for older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand("copy");
+            const originalHTML = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            button.classList.add("copied");
+            setTimeout(() => {
+                button.innerHTML = originalHTML;
+                button.classList.remove("copied");
+            }, 2000);
+        } catch (err) {
+            console.error("Fallback copy failed:", err);
+        }
+        document.body.removeChild(textArea);
+    });
+}
+
+// Make copyToClipboard available globally for onclick handler
+window.copyToClipboard = copyToClipboard;
+
+document.getElementById("info-panel-toggle").addEventListener("click", toggleInfoPanel);
+
 fetchProjects();
 loadDevice();
 setInterval(updateAllStatuses, 2000);
