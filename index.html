@@ -1,0 +1,481 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android Build Control</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f121a;
+            --bg-soft: #161b26;
+            --panel: #1a2130;
+            --panel-strong: #20283a;
+            --accent: #f97316;
+            --accent-soft: rgba(249, 115, 22, 0.15);
+            --text: #eef2ff;
+            --muted: #aab3c2;
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Space Grotesk", sans-serif;
+            color: var(--text);
+            background: radial-gradient(circle at top left, rgba(249, 115, 22, 0.18), transparent 45%),
+                        radial-gradient(circle at 80% 10%, rgba(34, 197, 94, 0.12), transparent 40%),
+                        linear-gradient(160deg, #0b0f16 0%, #121826 35%, #0f141f 100%);
+            min-height: 100vh;
+        }
+
+        .bg-shapes::before,
+        .bg-shapes::after {
+            content: "";
+            position: fixed;
+            border-radius: 40%;
+            opacity: 0.25;
+            filter: blur(0px);
+            z-index: 0;
+        }
+
+        .bg-shapes::before {
+            width: 280px;
+            height: 280px;
+            background: linear-gradient(120deg, rgba(56, 189, 248, 0.3), rgba(59, 130, 246, 0.05));
+            top: -40px;
+            right: 10%;
+            transform: rotate(10deg);
+        }
+
+        .bg-shapes::after {
+            width: 200px;
+            height: 200px;
+            background: linear-gradient(120deg, rgba(249, 115, 22, 0.35), rgba(248, 113, 113, 0.08));
+            bottom: 60px;
+            left: 4%;
+            transform: rotate(-12deg);
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 48px 24px 72px;
+        }
+
+        header {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            width: fit-content;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(2rem, 3vw, 3rem);
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            margin: 0;
+            color: var(--muted);
+            max-width: 680px;
+            font-size: 1.05rem;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 28px;
+        }
+
+        .control-group {
+            background: var(--panel);
+            border-radius: 14px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .control-group input {
+            background: var(--panel-strong);
+            border: none;
+            border-radius: 10px;
+            padding: 8px 12px;
+            color: var(--text);
+            min-width: 220px;
+        }
+
+        .control-group input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        select,
+        button {
+            font-family: "Space Grotesk", sans-serif;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+
+        select {
+            background: var(--panel-strong);
+            padding: 8px 12px;
+            border-radius: 10px;
+            color: var(--text);
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            background: var(--accent);
+            color: #10131c;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn.secondary {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px rgba(249, 115, 22, 0.2);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--panel);
+            border-radius: 20px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .project-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .status-pill {
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .status-pill.success {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--success);
+        }
+
+        .status-pill.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--error);
+        }
+
+        .status-pill.running {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .status-text {
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+
+        .actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .progress {
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 999px;
+            overflow: hidden;
+            height: 12px;
+        }
+
+        .progress-bar {
+            height: 12px;
+            background: linear-gradient(120deg, var(--accent), #facc15);
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        .artifact {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .artifact .muted {
+            color: var(--muted);
+        }
+
+        .artifact a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .empty {
+            background: var(--panel);
+            border-radius: 16px;
+            padding: 20px;
+            color: var(--muted);
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+
+        .logs-viewer {
+            margin-top: 12px;
+            display: none;
+        }
+
+        .logs-viewer.active {
+            display: block;
+        }
+
+        .logs-content {
+            background: var(--bg-soft);
+            border-radius: 12px;
+            padding: 16px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 0.85rem;
+            color: var(--text);
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logs-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .logs-content::-webkit-scrollbar-track {
+            background: var(--bg-soft);
+        }
+
+        .logs-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .logs-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .view-logs-btn {
+            margin-top: 8px;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--panel);
+            border-radius: 20px;
+            padding: 24px;
+            max-width: 90vw;
+            max-height: 90vh;
+            width: 800px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-logs {
+            background: var(--bg-soft);
+            border-radius: 12px;
+            padding: 16px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 0.9rem;
+            color: var(--text);
+            flex: 1;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        @media (max-width: 640px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .control-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body class="bg-shapes">
+    <div class="container">
+        <header>
+            <span class="badge">Remote Builder Console</span>
+            <h1>Build every project in one place.</h1>
+            <p class="subtitle">Select a project under <strong>/home/projects</strong>, launch a debug or release build, and grab the freshest APK from a unified dashboard.</p>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <span>Build type</span>
+                <select id="build-type">
+                    <option value="debug">Debug</option>
+                    <option value="release">Release</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <span>Device</span>
+                <input id="device-address" type="text" placeholder="192.168.1.20:5555">
+                <button class="btn secondary" id="device-save-btn">Save</button>
+            </div>
+            <button class="btn secondary" id="refresh-btn">Refresh projects</button>
+        </div>
+
+        <div id="project-grid" class="grid"></div>
+        <div id="empty-state" class="empty" hidden>
+            No projects found with a <code>gradlew</code> under <strong>/home/projects</strong>.
+        </div>
+    </div>
+
+    <div id="logs-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Build Logs</div>
+                <button class="modal-close" id="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-logs-content" class="modal-logs">Loading logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
