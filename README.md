@@ -165,6 +165,23 @@ server {
 3. <i class="fas fa-cube"></i> Build an APK or use an existing one
 4. <i class="fas fa-rocket"></i> Click "Deploy" to install the APK on your device
 
+### 🔧 Configure Project from Local IDE
+
+To configure the device address from your local IDE using curl:
+
+```bash
+# Configure device address
+curl -X POST http://localhost:8000/api/device \
+  -H "Content-Type: application/json" \
+  -d '{"address": "192.168.1.20:5555"}'
+```
+
+Replace `192.168.1.20:5555` with your actual device IP address and port.
+
+**Example responses:**
+- Success: `{"address": "192.168.1.20:5555"}`
+- Error: `{"error": "Invalid device address."}`
+
 ### API Endpoints
 
 The server provides REST API endpoints:
