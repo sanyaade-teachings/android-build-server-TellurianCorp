@@ -22,6 +22,13 @@ DEVICE_FILE = Path("device.json")
 BUILD_LOCK = threading.Lock()
 ACTIVE_BUILDS = {}
 
+# Android SDK environment
+ANDROID_HOME = "/home/android/sdk"
+BUILD_ENV = os.environ.copy()
+BUILD_ENV["ANDROID_HOME"] = ANDROID_HOME
+BUILD_ENV["ANDROID_SDK_ROOT"] = ANDROID_HOME
+BUILD_ENV["PATH"] = f"{ANDROID_HOME}/platform-tools:{ANDROID_HOME}/cmdline-tools/latest/bin:{BUILD_ENV.get('PATH', '')}"
+
 
 def ensure_dirs():
     STATUS_DIR.mkdir(exist_ok=True)
@@ -160,7 +167,8 @@ def run_build(project_name, build_type):
             capture_output=True,
             text=True,
             encoding="utf-8",
-            errors="replace"
+            errors="replace",
+            env=BUILD_ENV
         )
         
         # Save build output (last 2000 lines to avoid huge files)

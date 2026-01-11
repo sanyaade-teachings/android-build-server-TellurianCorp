@@ -123,7 +123,7 @@ function updateProjectStatus(project, data) {
     refs.progressBar.style.width = `${progress}%`;
     refs.progressLabel.innerHTML = `<span><i class="fas fa-tasks"></i> Progress</span><span>${progress}%</span>`;
 
-    const isRunning = status !== "done" && status !== "error" && status !== "not_started";
+    const isRunning = status !== "done" && status !== "error" && status !== "not_started" && status !== "deployed";
     refs.buildBtn.disabled = isRunning;
     refs.deployBtn.disabled = isRunning;
 
@@ -349,4 +349,4 @@ document.getElementById("info-panel-toggle").addEventListener("click", toggleInf
 
 fetchProjects();
 loadDevice();
-setInterval(updateAllStatuses, 2000);
+setInterval(updateAllStatuses, 5000);
