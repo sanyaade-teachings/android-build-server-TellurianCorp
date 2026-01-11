@@ -2,8 +2,10 @@ const projectGrid = document.getElementById("project-grid");
 const emptyState = document.getElementById("empty-state");
 const buildTypeSelect = document.getElementById("build-type");
 const refreshBtn = document.getElementById("refresh-btn");
-const deviceInput = document.getElementById("device-address");
-const deviceSaveBtn = document.getElementById("device-save-btn");
+const deviceSelect = document.getElementById("device-select");
+const deviceAddBtn = document.getElementById("device-add-btn");
+const deviceRemoveBtn = document.getElementById("device-remove-btn");
+const pairDeviceBtn = document.getElementById("pair-device-btn");
 
 const projectElements = new Map();
 
@@ -253,27 +255,143 @@ function loadDevice() {
     fetch("/api/device")
         .then((response) => response.json())
         .then((data) => {
-            if (data.address) {
-                deviceInput.value = data.address;
-            }
+            // Clear existing options
+            deviceSelect.innerHTML = '<option value="">No device selected</option>';
+            
+            const devices = data.devices || [];
+            const selected = data.selected || null;
+            
+            devices.forEach((device) => {
+                const option = document.createElement("option");
+                option.value = device.id;
+                option.textContent = `${device.name} (${device.address})`;
+                if (device.id === selected) {
+                    option.selected = true;
+                }
+                deviceSelect.appendChild(option);
+            });
+            
+            // Update remove button state
+            deviceRemoveBtn.disabled = !selected || devices.length === 0;
         })
         .catch((error) => console.error("Error loading device:", error));
 }
 
-function saveDevice() {
-    const address = deviceInput.value.trim();
+function selectDevice(deviceId) {
     fetch("/api/device", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({ address }),
+        body: JSON.stringify({ action: "select", device_id: deviceId }),
+    })
+        .then((response) => response.json())
+        .then(() => {
+            loadDevice();
+        })
+        .catch((error) => console.error("Error selecting device:", error));
+}
+
+function addDevice() {
+    const modal = document.getElementById("add-device-modal");
+    const statusDiv = document.getElementById("add-device-status");
+    const nameInput = document.getElementById("add-device-name");
+    const addressInput = document.getElementById("add-device-address");
+    
+    modal.classList.add("active");
+    statusDiv.textContent = "";
+    nameInput.value = "";
+    addressInput.value = "";
+}
+
+function submitAddDevice() {
+    const statusDiv = document.getElementById("add-device-status");
+    const nameInput = document.getElementById("add-device-name");
+    const addressInput = document.getElementById("add-device-address");
+    
+    const name = nameInput.value.trim();
+    const address = addressInput.value.trim();
+    
+    if (!address) {
+        statusDiv.textContent = "Endereço do dispositivo é obrigatório.";
+        statusDiv.className = "pair-status error";
+        return;
+    }
+    
+    if (!name) {
+        statusDiv.textContent = "Nome do dispositivo é obrigatório.";
+        statusDiv.className = "pair-status error";
+        return;
+    }
+    
+    statusDiv.textContent = "Adicionando dispositivo...";
+    statusDiv.className = "pair-status";
+    
+    const deviceId = `device_${Date.now()}`;
+    
+    fetch("/api/device", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            action: "add",
+            device_id: deviceId,
+            device_name: name,
+            address: address,
+        }),
     })
         .then((response) => response.json())
         .then((data) => {
-            deviceInput.value = data.address || "";
+            if (data.error) {
+                statusDiv.textContent = data.error;
+                statusDiv.className = "pair-status error";
+            } else {
+                statusDiv.textContent = "Dispositivo adicionado com sucesso!";
+                statusDiv.className = "pair-status success";
+                setTimeout(() => {
+                    closeAddDeviceModal();
+                    loadDevice();
+                }, 1000);
+            }
         })
-        .catch((error) => console.error("Error saving device:", error));
+        .catch((error) => {
+            console.error("Error adding device:", error);
+            statusDiv.textContent = "Erro ao adicionar dispositivo.";
+            statusDiv.className = "pair-status error";
+        });
+}
+
+function removeDevice() {
+    const selectedId = deviceSelect.value;
+    if (!selectedId) {
+        return;
+    }
+    
+    if (!confirm("Tem certeza que deseja remover este dispositivo?")) {
+        return;
+    }
+    
+    fetch("/api/device", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            action: "remove",
+            device_id: selectedId,
+        }),
+    })
+        .then((response) => response.json())
+        .then(() => {
+            loadDevice();
+        })
+        .catch((error) => console.error("Error removing device:", error));
+}
+
+function closeAddDeviceModal() {
+    const modal = document.getElementById("add-device-modal");
+    modal.classList.remove("active");
 }
 
 function showLogs(project) {
@@ -306,12 +424,28 @@ function closeLogsModal() {
 }
 
 refreshBtn.addEventListener("click", fetchProjects);
-deviceSaveBtn.addEventListener("click", saveDevice);
+deviceAddBtn.addEventListener("click", addDevice);
+deviceRemoveBtn.addEventListener("click", removeDevice);
+deviceSelect.addEventListener("change", (e) => {
+    if (e.target.value) {
+        selectDevice(e.target.value);
+    }
+});
 
 document.getElementById("modal-close-btn").addEventListener("click", closeLogsModal);
 document.getElementById("logs-modal").addEventListener("click", (e) => {
     if (e.target.id === "logs-modal") {
         closeLogsModal();
+    }
+});
+
+// Add device modal handlers
+document.getElementById("add-device-modal-close-btn").addEventListener("click", closeAddDeviceModal);
+document.getElementById("add-device-cancel-btn").addEventListener("click", closeAddDeviceModal);
+document.getElementById("add-device-submit-btn").addEventListener("click", submitAddDevice);
+document.getElementById("add-device-modal").addEventListener("click", (e) => {
+    if (e.target.id === "add-device-modal") {
+        closeAddDeviceModal();
     }
 });
 
@@ -373,6 +507,119 @@ function copyToClipboard(button, elementId) {
 window.copyToClipboard = copyToClipboard;
 
 document.getElementById("info-panel-toggle").addEventListener("click", toggleInfoPanel);
+
+// Pair device modal functions
+function openPairModal() {
+    const modal = document.getElementById("pair-modal");
+    modal.classList.add("active");
+    document.getElementById("pair-address").value = "";
+    document.getElementById("pairing-code").value = "";
+    updatePairStatus("", "");
+}
+
+function closePairModal() {
+    const modal = document.getElementById("pair-modal");
+    modal.classList.remove("active");
+}
+
+function updatePairStatus(message, type) {
+    const statusEl = document.getElementById("pair-status");
+    statusEl.textContent = message;
+    statusEl.className = "pair-status";
+    if (type) {
+        statusEl.classList.add(type);
+    }
+}
+
+function submitPairing() {
+    const pairAddress = document.getElementById("pair-address").value.trim();
+    const pairingCode = document.getElementById("pairing-code").value.trim();
+    const submitBtn = document.getElementById("pair-submit-btn");
+
+    if (!pairAddress) {
+        updatePairStatus("Por favor, insira o endereço de pareamento.", "error");
+        return;
+    }
+
+    if (!pairingCode) {
+        updatePairStatus("Por favor, insira o código de pareamento.", "error");
+        return;
+    }
+
+    submitBtn.disabled = true;
+    updatePairStatus("Pareando dispositivo...", "loading");
+
+    fetch("/api/pair-device", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            pair_address: pairAddress,
+            pairing_code: pairingCode,
+        }),
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            if (data.success) {
+                updatePairStatus(data.message || "Dispositivo pareado com sucesso!", "success");
+                // After successful pairing, suggest adding the device
+                const ip = pairAddress.split(":")[0];
+                if (ip) {
+                    // Auto-add device if pairing was successful
+                    const suggestedAddress = ip + ":5555";
+                    const deviceId = `device_${Date.now()}`;
+                    const deviceName = `Device ${ip}`;
+                    
+                    fetch("/api/device", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            action: "add",
+                            device_id: deviceId,
+                            device_name: deviceName,
+                            address: suggestedAddress,
+                        }),
+                    })
+                        .then(() => {
+                            loadDevice();
+                        })
+                        .catch((error) => console.error("Error auto-adding device:", error));
+                }
+                setTimeout(() => {
+                    closePairModal();
+                }, 2000);
+            } else {
+                updatePairStatus(data.message || data.error || "Falha no pareamento.", "error");
+            }
+        })
+        .catch((error) => {
+            console.error("Error pairing device:", error);
+            updatePairStatus("Erro ao parear dispositivo. Tente novamente.", "error");
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+        });
+}
+
+pairDeviceBtn.addEventListener("click", openPairModal);
+document.getElementById("pair-modal-close-btn").addEventListener("click", closePairModal);
+document.getElementById("pair-cancel-btn").addEventListener("click", closePairModal);
+document.getElementById("pair-submit-btn").addEventListener("click", submitPairing);
+document.getElementById("pair-modal").addEventListener("click", (e) => {
+    if (e.target.id === "pair-modal") {
+        closePairModal();
+    }
+});
+
+// Allow pressing Enter to submit pairing
+document.getElementById("pairing-code").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+        submitPairing();
+    }
+});
 
 fetchProjects();
 loadDevice();

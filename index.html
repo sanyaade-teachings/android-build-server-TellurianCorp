@@ -29,8 +29,12 @@
             </div>
             <div class="control-group">
                 <span><i class="fas fa-mobile-alt"></i> Device</span>
-                <input id="device-address" type="text" placeholder="192.168.1.20:5555">
-                <button class="btn secondary" id="device-save-btn"><i class="fas fa-save"></i> Save</button>
+                <select id="device-select" style="min-width: 200px;">
+                    <option value="">No device selected</option>
+                </select>
+                <button class="btn secondary" id="device-add-btn"><i class="fas fa-plus"></i> Add</button>
+                <button class="btn secondary" id="device-remove-btn"><i class="fas fa-trash"></i> Remove</button>
+                <button class="btn pair-btn" id="pair-device-btn"><i class="fas fa-wifi"></i> Parear</button>
             </div>
             <button class="btn secondary" id="refresh-btn"><i class="fas fa-sync-alt"></i> Refresh projects</button>
         </div>
@@ -88,6 +92,71 @@
             </div>
             <div class="modal-body">
                 <div id="modal-logs-content" class="modal-logs">Loading logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pair-modal" class="modal">
+        <div class="modal-content pair-modal-content">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-wifi"></i> Parear Dispositivo via WiFi</div>
+                <button class="modal-close" id="pair-modal-close-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body pair-modal-body">
+                <div class="pair-instructions">
+                    <p><i class="fas fa-info-circle"></i> <strong>Como parear (Android 11+):</strong></p>
+                    <ol>
+                        <li>No dispositivo, vá em <strong>Configurações → Opções do desenvolvedor → Depuração sem fio</strong></li>
+                        <li>Ative a <strong>Depuração sem fio</strong></li>
+                        <li>Toque em <strong>Parear dispositivo com código de pareamento</strong></li>
+                        <li>Insira o endereço e código mostrados no dispositivo abaixo</li>
+                    </ol>
+                </div>
+                <div class="pair-form">
+                    <div class="pair-input-group">
+                        <label for="pair-address"><i class="fas fa-network-wired"></i> Endereço de pareamento</label>
+                        <input type="text" id="pair-address" placeholder="192.168.1.20:37123">
+                        <span class="pair-hint">IP e porta mostrados na tela de pareamento do dispositivo</span>
+                    </div>
+                    <div class="pair-input-group">
+                        <label for="pairing-code"><i class="fas fa-key"></i> Código de pareamento</label>
+                        <input type="text" id="pairing-code" placeholder="123456" maxlength="10">
+                        <span class="pair-hint">Código de 6 dígitos mostrado no dispositivo</span>
+                    </div>
+                    <div id="pair-status" class="pair-status"></div>
+                    <div class="pair-actions">
+                        <button class="btn" id="pair-submit-btn"><i class="fas fa-link"></i> Parear</button>
+                        <button class="btn secondary" id="pair-cancel-btn">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-device-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-plus"></i> Adicionar Dispositivo</div>
+                <button class="modal-close" id="add-device-modal-close-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="pair-form">
+                    <div class="pair-input-group">
+                        <label for="add-device-name"><i class="fas fa-tag"></i> Nome do Dispositivo</label>
+                        <input type="text" id="add-device-name" placeholder="Meu Dispositivo">
+                        <span class="pair-hint">Nome para identificar este dispositivo</span>
+                    </div>
+                    <div class="pair-input-group">
+                        <label for="add-device-address"><i class="fas fa-network-wired"></i> Endereço do Dispositivo</label>
+                        <input type="text" id="add-device-address" placeholder="192.168.1.20:5555">
+                        <span class="pair-hint">IP e porta do dispositivo (ex: 192.168.1.20:5555)</span>
+                    </div>
+                    <div id="add-device-status" class="pair-status"></div>
+                    <div class="pair-actions">
+                        <button class="btn" id="add-device-submit-btn"><i class="fas fa-save"></i> Adicionar</button>
+                        <button class="btn secondary" id="add-device-cancel-btn">Cancelar</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

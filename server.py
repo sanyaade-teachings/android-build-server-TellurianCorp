@@ -37,20 +37,122 @@ def ensure_dirs():
 
 
 def load_device():
+    """Load device configuration. Supports both old format (single address) and new format (multiple devices)."""
     if not DEVICE_FILE.exists():
-        return {"address": ""}
+        return {"devices": [], "selected": None}
     try:
         with DEVICE_FILE.open("r") as f:
-            return json.load(f)
-    except Exception:
-        return {"address": ""}
+            data = json.load(f)
+            # Migrate old format to new format
+            if "address" in data and "devices" not in data:
+                address = data.get("address", "")
+                if address:
+                    devices = [{"id": "default", "name": "Default Device", "address": address}]
+                    migrated_data = {"devices": devices, "selected": "default"}
+                    # Persist migration immediately
+                    try:
+                        with DEVICE_FILE.open("w") as wf:
+                            json.dump(migrated_data, wf, indent=2)
+                            wf.flush()
+                            os.fsync(wf.fileno())
+                        logging.info("Migrated device.json from old format to new format")
+                    except Exception as e:
+                        logging.error(f"Error migrating device file: {e}")
+                    return migrated_data
+                else:
+                    return {"devices": [], "selected": None}
+            return data
+    except Exception as e:
+        logging.error(f"Error loading device file: {e}")
+        return {"devices": [], "selected": None}
 
 
-def save_device(address):
-    payload = {"address": address}
+def save_device(address=None, device_id=None, device_name=None, selected_id=None):
+    """Save device configuration. Can add/update a device or set selected device."""
+    try:
+        data = load_device()
+        
+        if selected_id is not None:
+            # Just update selected device
+            data["selected"] = selected_id if selected_id in [d["id"] for d in data["devices"]] else None
+        elif device_id and address:
+            # Add or update a device
+            devices = data.get("devices", [])
+            # Check if device already exists
+            device_index = next((i for i, d in enumerate(devices) if d["id"] == device_id), None)
+            if device_index is not None:
+                # Update existing device
+                devices[device_index]["address"] = address
+                if device_name:
+                    devices[device_index]["name"] = device_name
+                logging.info(f"Updated device {device_id}: {device_name} at {address}")
+            else:
+                # Add new device
+                if not device_name:
+                    device_name = f"Device {device_id}"
+                devices.append({"id": device_id, "name": device_name, "address": address})
+                logging.info(f"Adding new device {device_id}: {device_name} at {address}")
+            data["devices"] = devices
+            # Auto-select if no device is selected
+            if not data.get("selected") and devices:
+                data["selected"] = devices[0]["id"]
+        elif address:
+            # Legacy: save single address (backward compatibility)
+            if not data.get("devices"):
+                data["devices"] = [{"id": "default", "name": "Default Device", "address": address}]
+                data["selected"] = "default"
+            else:
+                # Update first device or create default
+                if data["devices"]:
+                    data["devices"][0]["address"] = address
+                else:
+                    data["devices"] = [{"id": "default", "name": "Default Device", "address": address}]
+                    data["selected"] = "default"
+        
+        # Ensure devices list exists
+        if "devices" not in data:
+            data["devices"] = []
+        
+        # Write to file with error handling
+        try:
+            with DEVICE_FILE.open("w") as f:
+                json.dump(data, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            logging.info(f"Successfully saved device configuration: {len(data.get('devices', []))} devices")
+        except Exception as e:
+            logging.error(f"Error writing device file: {e}")
+            raise
+        
+        return data
+    except Exception as e:
+        logging.error(f"Error in save_device: {e}")
+        raise
+
+
+def get_selected_device_address():
+    """Get the address of the currently selected device."""
+    data = load_device()
+    selected_id = data.get("selected")
+    if not selected_id:
+        return None
+    devices = data.get("devices", [])
+    device = next((d for d in devices if d["id"] == selected_id), None)
+    return device["address"] if device else None
+
+
+def remove_device(device_id):
+    """Remove a device from the configuration."""
+    data = load_device()
+    devices = data.get("devices", [])
+    devices = [d for d in devices if d["id"] != device_id]
+    data["devices"] = devices
+    # If removed device was selected, select first available or None
+    if data.get("selected") == device_id:
+        data["selected"] = devices[0]["id"] if devices else None
     with DEVICE_FILE.open("w") as f:
-        json.dump(payload, f)
-    return payload
+        json.dump(data, f, indent=2)
+    return data
 
 
 def project_path(project_name):
@@ -308,6 +410,38 @@ def find_adb():
     return None
 
 
+def run_pair_device(pair_address, pairing_code):
+    """Pair with a device using wireless debugging pairing code (Android 11+)."""
+    adb_path = find_adb()
+    if not adb_path:
+        return {"success": False, "message": "ADB not found. Please install Android SDK platform-tools."}
+
+    try:
+        # Run adb pair command
+        result = subprocess.run(
+            [adb_path, "pair", pair_address, pairing_code],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30
+        )
+        
+        output = (result.stdout or "") + (result.stderr or "")
+        
+        if result.returncode == 0 and "Successfully paired" in output:
+            logging.info("Successfully paired with device at %s", pair_address)
+            return {"success": True, "message": "Successfully paired with device!"}
+        else:
+            logging.error("Pairing failed for %s: %s", pair_address, output)
+            return {"success": False, "message": f"Pairing failed: {output.strip()}"}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "message": "Pairing timed out. Please check the pairing code and try again."}
+    except Exception as e:
+        logging.error("Unexpected pairing error: %s", e)
+        return {"success": False, "message": f"Unexpected error: {str(e)}"}
+
+
 def run_deploy(project_name, device_addr, build_type=None):
     if not device_addr:
         write_status(project_name, "error", 0, message="Device address not set.")
@@ -490,11 +624,43 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             try:
                 data = json.loads(post_data)
-                address = data.get("address", "").strip()
-                if address and " " in address:
-                    self._send_json({"error": "Invalid device address."}, status=HTTPStatus.BAD_REQUEST)
-                    return
-                self._send_json(save_device(address))
+                
+                # Handle different operations
+                if "action" in data:
+                    action = data.get("action")
+                    if action == "add":
+                        address = data.get("address", "").strip()
+                        device_id = data.get("device_id", "").strip() or f"device_{int(time.time())}"
+                        device_name = data.get("device_name", "").strip() or f"Device {device_id}"
+                        if not address:
+                            self._send_json({"error": "Device address is required."}, status=HTTPStatus.BAD_REQUEST)
+                            return
+                        if " " in address:
+                            self._send_json({"error": "Invalid device address."}, status=HTTPStatus.BAD_REQUEST)
+                            return
+                        result = save_device(address=address, device_id=device_id, device_name=device_name)
+                        self._send_json(result)
+                    elif action == "remove":
+                        device_id = data.get("device_id", "").strip()
+                        if not device_id:
+                            self._send_json({"error": "Device ID is required."}, status=HTTPStatus.BAD_REQUEST)
+                            return
+                        result = remove_device(device_id)
+                        self._send_json(result)
+                    elif action == "select":
+                        selected_id = data.get("device_id", "").strip()
+                        result = save_device(selected_id=selected_id)
+                        self._send_json(result)
+                    else:
+                        self._send_json({"error": "Unknown action."}, status=HTTPStatus.BAD_REQUEST)
+                else:
+                    # Legacy: single address (backward compatibility)
+                    address = data.get("address", "").strip()
+                    if address and " " in address:
+                        self._send_json({"error": "Invalid device address."}, status=HTTPStatus.BAD_REQUEST)
+                        return
+                    result = save_device(address=address)
+                    self._send_json(result)
             except json.JSONDecodeError:
                 logging.error("Invalid JSON in POST request")
                 self._send_json({"error": "Invalid JSON"}, status=HTTPStatus.BAD_REQUEST)
@@ -512,10 +678,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if not project_dir:
                     self._send_json({"error": "Project not found."}, status=HTTPStatus.BAD_REQUEST)
                     return
-                device = load_device()
+                device_addr = get_selected_device_address()
+                if not device_addr:
+                    self._send_json({"error": "No device selected. Please select a device first."}, status=HTTPStatus.BAD_REQUEST)
+                    return
                 t = threading.Thread(
                     target=run_deploy,
-                    args=(project, device.get("address", ""), build_type),
+                    args=(project, device_addr, build_type),
                     daemon=True,
                 )
                 t.start()
@@ -551,6 +720,35 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({"error": "Invalid JSON"}, status=HTTPStatus.BAD_REQUEST)
             except Exception as e:
                 logging.error(f"Error processing POST request: {e}")
+                self._send_json({"error": "Server error"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        elif self.path == '/api/pair-device':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data)
+                pair_address = data.get("pair_address", "").strip()
+                pairing_code = data.get("pairing_code", "").strip()
+                
+                if not pair_address:
+                    self._send_json({"error": "Pair address is required (e.g., 192.168.1.20:37123)"}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                if not pairing_code:
+                    self._send_json({"error": "Pairing code is required"}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                if " " in pair_address or " " in pairing_code:
+                    self._send_json({"error": "Invalid pair address or pairing code"}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                
+                result = run_pair_device(pair_address, pairing_code)
+                if result["success"]:
+                    self._send_json(result)
+                else:
+                    self._send_json(result, status=HTTPStatus.BAD_REQUEST)
+            except json.JSONDecodeError:
+                logging.error("Invalid JSON in POST request")
+                self._send_json({"error": "Invalid JSON"}, status=HTTPStatus.BAD_REQUEST)
+            except Exception as e:
+                logging.error(f"Error processing pair request: {e}")
                 self._send_json({"error": "Server error"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
         else:
             self.send_response(HTTPStatus.NOT_FOUND)
