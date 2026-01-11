@@ -79,3 +79,11 @@ Desktop.ini
 .env
 .env.local
 .env.*.local
+
+# Test coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+.pytest_cache/
+.tox/

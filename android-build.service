@@ -1,0 +1,24 @@
+[Unit]
+Description=Android Build Server
+After=network.target
+
+[Service]
+Type=simple
+User=%u
+Group=%g
+WorkingDirectory=%d
+ExecStart=/usr/bin/python3 %d/server.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables
+Environment="PYTHONUNBUFFERED=1"
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
