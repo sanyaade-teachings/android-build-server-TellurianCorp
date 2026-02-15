@@ -1,4 +1,4 @@
-# Android Build Server
+# Android Build Server by TellurianCorp
 
 [![Tests](https://github.com/TellurianCorp/android-build-server/actions/workflows/test.yml/badge.svg)](https://github.com/TellurianCorp/android-build-server/actions/workflows/test.yml)
 [![Coverage](https://codecov.io/gh/TellurianCorp/android-build-server/branch/main/graph/badge.svg?token=XSMLPRV9EH)](https://codecov.io/gh/TellurianCorp/android-build-server)
